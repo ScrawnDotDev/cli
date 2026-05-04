@@ -73,7 +73,7 @@ func ToUI(fields []Field) []ui.WizardField {
 		result[i] = ui.WizardField{
 			Key:          f.Key,
 			Label:        f.Label,
-			Type:         ui.WizardFieldType(f.Type),
+			Type:         ui.FieldType(f.Type),
 			Options:     f.Options,
 			DefaultValue: f.DefaultValue,
 			Validate:    f.Validate,
