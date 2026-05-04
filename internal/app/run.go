@@ -16,13 +16,13 @@ func Run(args []string) error {
 	if len(args) == 0 {
 		return &apperr.CommandError{
 			Summary: "missing command",
-			Detail:  "use `scrawn create server <folder>`, `scrawn create dashboard <folder>`, or `scrawn create all <folder>`",
+			Detail:  "use `scrawn init`, `scrawn init server`, or `scrawn init dashboard`",
 		}
 	}
 
 	switch args[0] {
-	case "create":
-		return handleCreate(args[1:])
+	case "init":
+		return handleInit(args[1:])
 	default:
 		return &apperr.CommandError{
 			Summary: "unknown command",
@@ -31,12 +31,13 @@ func Run(args []string) error {
 	}
 }
 
-func handleCreate(args []string) error {
+func handleInit(args []string) error {
 	if len(args) == 0 {
-		return &apperr.CommandError{
-			Summary: "missing create target",
-			Detail:  "choose one of: server, dashboard, all",
+		cfg, err := collectConfig("all", "", "init server")
+		if err != nil {
+			return err
 		}
+		return setupServerAndDashboard(cfg)
 	}
 
 	kind := strings.ToLower(strings.TrimSpace(args[0]))
@@ -48,8 +49,8 @@ func handleCreate(args []string) error {
 	switch kind {
 	case "dashboard":
 		return handleDashboardOnly(folderArg)
-	case "server", "all":
-		cfg, err := collectConfig(kind, folderArg)
+	case "server":
+		cfg, err := collectConfig(kind, folderArg, "init server")
 		if err != nil {
 			return err
 		}
@@ -60,16 +61,30 @@ func handleCreate(args []string) error {
 		}
 
 		ui.RenderSuccess(result, kind)
-		if kind == "all" {
-			ui.RenderDashboardStub(result.TargetPath)
-		}
 		return nil
+	case "all":
+		cfg, err := collectConfig(kind, folderArg, "init server")
+		if err != nil {
+			return err
+		}
+		return setupServerAndDashboard(cfg)
 	default:
 		return &apperr.CommandError{
-			Summary: "invalid create target",
-			Detail:  "use `server`, `dashboard`, or `all`",
+			Summary: "invalid init target",
+			Detail:  "use `server`, `dashboard`, or leave empty for both",
 		}
 	}
+}
+
+func setupServerAndDashboard(cfg setup.Config) error {
+	result, err := setup.SetupServer(cfg, ui.Step, ui.MarkOK)
+	if err != nil {
+		return err
+	}
+
+	ui.RenderSuccess(result, "server")
+	ui.RenderDashboardStub(result.TargetPath)
+	return nil
 }
 
 func handleDashboardOnly(folder string) error {
@@ -82,7 +97,7 @@ func handleDashboardOnly(folder string) error {
 	return nil
 }
 
-func collectConfig(kind string, folderArg string) (setup.Config, error) {
+func collectConfig(kind string, folderArg string, wizardTitle string) (setup.Config, error) {
 	pmOptions, err := setup.AvailablePackageManagers()
 	if err != nil {
 		return setup.Config{}, err
@@ -103,7 +118,7 @@ func collectConfig(kind string, folderArg string) (setup.Config, error) {
 	}
 
 	values, err := ui.RunWizard(
-		"create server",
+		wizardTitle,
 		"",
 		[]ui.WizardField{
 			{Key: "packageManager", Label: "Package Manager", Description: "Which package manager do you want to use?", Type: ui.FieldSelect, Options: pmOptions, DefaultValue: defaultPM},

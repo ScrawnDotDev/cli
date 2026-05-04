@@ -10,20 +10,20 @@ import (
 	"github.com/ScrawnDotDev/scrawn-cli/internal/setup"
 )
 
-func RenderServerSetupIntro() {
-	fmt.Println(sectionStyle.Render("scrawn create server"))
-	fmt.Println(mutedStyle.Render("Pull latest backend, configure it, migrate the database, verify startup, and generate a dashboard API key."))
-	fmt.Println(subtleRule())
-}
-
 func RenderDashboardIntent(target string) {
-	fmt.Println(sectionStyle.Render("scrawn create dashboard"))
-	fmt.Printf("%s %s\n", labelStyle.Render("target"), valueStyle.Render(formatPath(target)))
+	PrintSetupHeader("init dashboard")
 	fmt.Println(mutedStyle.Render("Dashboard scaffolding is not implemented yet."))
 }
 
 func Step(message string) {
 	fmt.Printf("%s %s\n", stepStyle.Render("==>"), message)
+}
+
+func PrintSetupHeader(title string) {
+	fmt.Println()
+	fmt.Println(sectionStyle.Render("Scrawn CLI"))
+	fmt.Println(mutedStyle.Render("> " + title))
+	fmt.Println(subtleRule())
 }
 
 func MarkOK(label string, detail string) {
@@ -50,8 +50,8 @@ func RenderSuccess(result setup.Result, kind string) {
 
 func RenderDashboardStub(target string) {
 	fmt.Println()
+	fmt.Println(mutedStyle.Render("> init dashboard "))
 	fmt.Println(warnStyle.Render("Dashboard setup is not implemented yet."))
-	fmt.Printf("%s %s\n", labelStyle.Render("server location"), valueStyle.Render(formatPath(target)))
 }
 
 func RenderError(err error) {

@@ -15,6 +15,10 @@ import (
 	apperr "github.com/ScrawnDotDev/scrawn-cli/internal/apperr"
 )
 
+var sectionStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
+var mutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+var subtleRuleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
 var spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 var spinChars = []string{"-", "\\", "|", "/"}
 
@@ -110,6 +114,10 @@ func EnsureTargetIsSafe(target string) error {
 }
 
 func SetupServer(cfg Config, step func(string), markOK func(string, string)) (Result, error) {
+	fmt.Println(sectionStyle.Render("Scrawn CLI"))
+	fmt.Println(mutedStyle.Render("> init server"))
+	fmt.Println(subtleRuleStyle.Render(strings.Repeat("-", 72)))
+
 	if err := EnsureTargetIsSafe(cfg.TargetPath); err != nil {
 		return Result{}, err
 	}
