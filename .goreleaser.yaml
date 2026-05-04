@@ -23,6 +23,7 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
+      - -X github.com/ScrawnDotDev/scrawn-cli/internal/app.Version={{ .Version }}
 
 archives:
   - id: default

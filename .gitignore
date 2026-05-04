@@ -41,3 +41,7 @@ venv/
 coverage/
 *.tmp
 *.temp
+
+
+## Test Build
+scrawn.exe

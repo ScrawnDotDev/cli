@@ -11,17 +11,17 @@ import (
 
 var ErrPromptInterrupted = errors.New("prompt interrupted")
 
-type WizardFieldType string
+type FieldType string
 
 const (
-	FieldSelect WizardFieldType = "select"
-	FieldInput  WizardFieldType = "input"
+	FieldSelect FieldType = "select"
+	FieldInput  FieldType = "input"
 )
 
 type WizardField struct {
 	Key          string
 	Label        string
-	Type         WizardFieldType
+	Type         FieldType
 	Options      []string
 	DefaultValue string
 	Validate     func(string) error
@@ -117,12 +117,12 @@ func (m wizardModel) View() string {
 	}
 
 	field := m.currentField()
-	progress := mutedStyle.Render(fmt.Sprintf("[%d/%d]", m.index+1, len(m.fields)))
+	progress := fmt.Sprintf("[%d/%d]", m.index+1, len(m.fields))
 	body := []string{
 		sectionStyle.Render("Scrawn CLI"),
 		mutedStyle.Render("> " + m.title),
 		subtleRule(),
-		progress + " " + labelStyle.Render(field.Label),
+		progress + " " + field.Label + ":",
 	}
 
 	if strings.TrimSpace(field.Description) != "" {
@@ -149,7 +149,7 @@ func (m wizardModel) View() string {
 		body = append(body, mutedStyle.Render("Press Enter to continue."))
 	}
 
-	return strings.Join(body, "\n")
+return strings.Join(body, "\n")
 }
 
 func (m wizardModel) updateSelect(msg tea.Msg) (tea.Model, tea.Cmd) {

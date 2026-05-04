@@ -15,12 +15,11 @@ import (
 	apperr "github.com/ScrawnDotDev/scrawn-cli/internal/apperr"
 )
 
-var sectionStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
+var sectionStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("221"))
 var mutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 var subtleRuleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-
-var spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
-var spinChars = []string{"-", "\\", "|", "/"}
+var spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("221"))
+var spinChars = []string{"·", "◦", "○", "◦"}
 
 func runWithSpinner(label string, fn func() error) error {
 	fmt.Printf("%s ", label)
