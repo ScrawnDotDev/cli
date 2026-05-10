@@ -118,8 +118,12 @@ func runSync(args []string) error {
 	}
 
 	// 4. Evaluate scrawn.config.ts via the runtime
-	cfg, err := evalTsConfig(runtime, configPath, configDir)
-	if err != nil {
+	var cfg cliConfig
+	if err := ui.SpinnerTask(fmt.Sprintf("Reading config (%s)", filepath.Base(configPath)), func() error {
+		var evalErr error
+		cfg, evalErr = evalTsConfig(runtime, configPath, configDir)
+		return evalErr
+	}); err != nil {
 		return &cmd.CommandError{
 			Summary: "failed to read config",
 			Detail:  err.Error(),
@@ -141,8 +145,12 @@ func runSync(args []string) error {
 	}
 
 	// 5. Fetch tags from server
-	tags, err := fetchTagsFromServer(cfg.HTTPURL, cfg.APIKey)
-	if err != nil {
+	var tags []string
+	if err := ui.SpinnerTask("Fetching tags from server", func() error {
+		var fetchErr error
+		tags, fetchErr = fetchTagsFromServer(cfg.HTTPURL, cfg.APIKey)
+		return fetchErr
+	}); err != nil {
 		return &cmd.CommandError{
 			Summary: "failed to fetch tags",
 			Detail:  err.Error(),
@@ -152,7 +160,10 @@ func runSync(args []string) error {
 	// 6. Generate tags.ts
 	outputDir := filepath.Join(configDir, cfg.Directory)
 	tagsPath := filepath.Join(outputDir, "tags.ts")
-	if err := writeTagsFile(tagsPath, tags); err != nil {
+
+	if err := ui.SpinnerTask(fmt.Sprintf("Writing %s", filepath.Join(cfg.Directory, "tags.ts")), func() error {
+		return writeTagsFile(tagsPath, tags)
+	}); err != nil {
 		return &cmd.CommandError{
 			Summary: "failed to generate tags file",
 			Detail:  err.Error(),
