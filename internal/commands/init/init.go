@@ -82,6 +82,7 @@ type serverFlags struct {
 	dbUrl            string
 	redisUrl         string
 	clickhouseUrl    string
+	appUrl           string
 	dodoLiveKey      string
 	dodoTestKey      string
 	dodoProductID    string
@@ -131,6 +132,7 @@ func serverHelp() {
 	fmt.Println("  -d, --db-url            PostgreSQL connection string")
 	fmt.Println("  -r, --redis-url         Redis connection string")
 	fmt.Println("  -c, --clickhouse-url    ClickHouse connection string")
+	fmt.Println("  --app-url               Public app URL (e.g. https://api.example.com)")
 	fmt.Println("  --dodo-live-key         Dodo Payments live API key")
 	fmt.Println("  --dodo-test-key         Dodo Payments test API key (optional)")
 	fmt.Println("  --dodo-product-id       Dodo Payments product ID")
@@ -174,6 +176,7 @@ func parseServerFlags(args []string) *serverFlags {
 	fs.StringVar(&flags.redisUrl, "redis-url", "", "redis url")
 	fs.StringVar(&flags.clickhouseUrl, "c", "", "clickhouse url")
 	fs.StringVar(&flags.clickhouseUrl, "clickhouse-url", "", "clickhouse url")
+	fs.StringVar(&flags.appUrl, "app-url", "", "app url")
 	fs.StringVar(&flags.dodoLiveKey, "dodo-live-key", "", "dodo live api key")
 	fs.StringVar(&flags.dodoTestKey, "dodo-test-key", "", "dodo test api key")
 	fs.StringVar(&flags.dodoProductID, "dodo-product-id", "", "dodo product id")
@@ -239,6 +242,7 @@ func buildServerConfig(flags *serverFlags) (*setup.Config, error) {
 	cfg.DatabaseURL = flags.dbUrl
 	cfg.RedisURL = flags.redisUrl
 	cfg.ClickhouseURL = flags.clickhouseUrl
+	cfg.AppURL = flags.appUrl
 	cfg.DodoLiveAPIKey = flags.dodoLiveKey
 	cfg.DodoTestAPIKey = flags.dodoTestKey
 	cfg.DodoProductID = flags.dodoProductID
@@ -363,11 +367,37 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 			}
 			return nil
 		}},
-		{Key: "clickhouseURL", Label: "ClickHouse URL", Description: "What's your CLICKHOUSE_URL connection string? (optional)", Type: ui.FieldInput, DefaultValue: "http://default:clickhouse@localhost:8123/scrawn", AllowBlank: true},
-		{Key: "dodoLiveKey", Label: "Dodo Live API Key", Description: "Your Dodo Payments live API key (from dashboard → Developer → API)", Type: ui.FieldInput, AllowBlank: true},
+		{Key: "clickhouseURL", Label: "ClickHouse URL", Description: "What's your CLICKHOUSE_URL connection string?", Type: ui.FieldInput, DefaultValue: "http://default:clickhouse@localhost:8123/scrawn", Validate: func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("CLICKHOUSE_URL is required")
+			}
+			return nil
+		}},
+		{Key: "appURL", Label: "App URL", Description: "What's your public APP_URL? (e.g. https://api.example.com)", Type: ui.FieldInput, DefaultValue: "http://localhost:3000", Validate: func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("APP_URL is required")
+			}
+			return nil
+		}},
+		{Key: "dodoLiveKey", Label: "Dodo Live API Key", Description: "Your Dodo Payments live API key (from dashboard → Developer → API)", Type: ui.FieldInput, Validate: func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("DODO_PAYMENTS_API_KEY is required")
+			}
+			return nil
+		}},
 		{Key: "dodoTestKey", Label: "Dodo Test API Key", Description: "Optional — for test-mode checkout", Type: ui.FieldInput, AllowBlank: true},
-		{Key: "dodoProductID", Label: "Dodo Product ID", Description: "Your Dodo product ID (prod_xxxxx)", Type: ui.FieldInput, AllowBlank: true},
-		{Key: "dodoWebhookSecret", Label: "Dodo Webhook Signing Secret", Description: "Optional — for verifying webhook signatures", Type: ui.FieldInput, AllowBlank: true},
+		{Key: "dodoProductID", Label: "Dodo Product ID", Description: "Your Dodo product ID (prod_xxxxx)", Type: ui.FieldInput, Validate: func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("DODO_PAYMENTS_PRODUCT_ID is required")
+			}
+			return nil
+		}},
+		{Key: "dodoWebhookSecret", Label: "Dodo Webhook Signing Secret", Description: "For verifying webhook signatures", Type: ui.FieldInput, Validate: func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("DODO_PAYMENTS_WEBHOOK_SIGNING_SECRET is required")
+			}
+			return nil
+		}},
 	}
 
 	values, err := ui.RunWizard("init server", "", fields)
@@ -392,6 +422,7 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 	cfg.DatabaseURL = values["databaseURL"]
 	cfg.RedisURL = values["redisURL"]
 	cfg.ClickhouseURL = values["clickhouseURL"]
+	cfg.AppURL = values["appURL"]
 	cfg.DodoLiveAPIKey = values["dodoLiveKey"]
 	cfg.DodoTestAPIKey = values["dodoTestKey"]
 	cfg.DodoProductID = values["dodoProductID"]

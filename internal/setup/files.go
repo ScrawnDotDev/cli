@@ -47,11 +47,11 @@ func writeEnvFile(cfg Config) error {
 		fmt.Sprintf("HMAC_SECRET=%s", quoteEnvValue(cfg.HMACSecret)),
 		fmt.Sprintf("DATABASE_URL=%s", quoteEnvValue(cfg.DatabaseURL)),
 		fmt.Sprintf("CLICKHOUSE_URL=%s", quoteEnvValue(cfg.ClickhouseURL)),
+		fmt.Sprintf("APP_URL=%s", quoteEnvValue(cfg.AppURL)),
 		fmt.Sprintf("DODO_PAYMENTS_API_KEY=%s", quoteEnvValue(cfg.DodoLiveAPIKey)),
 		fmt.Sprintf("DODO_PAYMENTS_TEST_API_KEY=%s", quoteEnvValue(cfg.DodoTestAPIKey)),
 		fmt.Sprintf("DODO_PAYMENTS_PRODUCT_ID=%s", quoteEnvValue(cfg.DodoProductID)),
 		fmt.Sprintf("DODO_PAYMENTS_WEBHOOK_SIGNING_SECRET=%s", quoteEnvValue(cfg.DodoWebhookSecret)),
-		"TEST_API_KEY=",
 		fmt.Sprintf("REDIS_URL=%s", quoteEnvValue(cfg.RedisURL)),
 		"",
 	}, "\n")
