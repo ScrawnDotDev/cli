@@ -40,11 +40,12 @@ func insertDashboardAPIKey(databaseURL string, hmacSecret string) (string, strin
 		apiKeyHash := hashAPIKey(apiKey, hmacSecret)
 		createdAt := time.Now().UTC()
 		expiresAt := createdAt.Add(365 * 24 * time.Hour)
+		role := "dashboard"
 
 		_, execErr := conn.Exec(ctx,
-			`INSERT INTO api_keys (id, name, key, created_at, expires_at, revoked, revoked_at)
-			 VALUES ($1, $2, $3, $4, $5, false, NULL)`,
-			uuid.NewString(), name, apiKeyHash, createdAt, expiresAt,
+			`INSERT INTO api_keys (id, name, key, role, created_at, expires_at, revoked, revoked_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, false, NULL)`,
+			uuid.NewString(), name, apiKeyHash, role, createdAt, expiresAt,
 		)
 		if execErr == nil {
 			return name, apiKey, nil
@@ -74,7 +75,7 @@ func generateDashboardAPIKey() (string, error) {
 		normalized = normalized[:32]
 	}
 
-	return "scrn_" + normalized, nil
+	return "scrn_dash_" + normalized, nil
 }
 
 func hashAPIKey(apiKey string, secret string) string {
