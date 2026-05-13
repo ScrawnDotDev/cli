@@ -11,6 +11,7 @@ type Config struct {
 	RedisURL          string
 	ClickhouseURL     string
 	AppURL            string
+	SentryDSN         string
 	DodoLiveAPIKey    string
 	DodoTestAPIKey    string
 	DodoProductID     string

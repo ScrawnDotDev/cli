@@ -83,6 +83,7 @@ type serverFlags struct {
 	redisUrl         string
 	clickhouseUrl    string
 	appUrl           string
+	sentryDsn        string
 	dodoLiveKey      string
 	dodoTestKey      string
 	dodoProductID    string
@@ -133,6 +134,7 @@ func serverHelp() {
 	fmt.Println("  -r, --redis-url         Redis connection string")
 	fmt.Println("  -c, --clickhouse-url    ClickHouse connection string")
 	fmt.Println("  --app-url               Public app URL (e.g. https://api.example.com)")
+	fmt.Println("  --sentry-dsn            Sentry DSN for error monitoring (optional)")
 	fmt.Println("  --dodo-live-key         Dodo Payments live API key")
 	fmt.Println("  --dodo-test-key         Dodo Payments test API key (optional)")
 	fmt.Println("  --dodo-product-id       Dodo Payments product ID")
@@ -177,6 +179,7 @@ func parseServerFlags(args []string) *serverFlags {
 	fs.StringVar(&flags.clickhouseUrl, "c", "", "clickhouse url")
 	fs.StringVar(&flags.clickhouseUrl, "clickhouse-url", "", "clickhouse url")
 	fs.StringVar(&flags.appUrl, "app-url", "", "app url")
+	fs.StringVar(&flags.sentryDsn, "sentry-dsn", "", "sentry dsn")
 	fs.StringVar(&flags.dodoLiveKey, "dodo-live-key", "", "dodo live api key")
 	fs.StringVar(&flags.dodoTestKey, "dodo-test-key", "", "dodo test api key")
 	fs.StringVar(&flags.dodoProductID, "dodo-product-id", "", "dodo product id")
@@ -243,6 +246,7 @@ func buildServerConfig(flags *serverFlags) (*setup.Config, error) {
 	cfg.RedisURL = flags.redisUrl
 	cfg.ClickhouseURL = flags.clickhouseUrl
 	cfg.AppURL = flags.appUrl
+	cfg.SentryDSN = flags.sentryDsn
 	cfg.DodoLiveAPIKey = flags.dodoLiveKey
 	cfg.DodoTestAPIKey = flags.dodoTestKey
 	cfg.DodoProductID = flags.dodoProductID
@@ -379,6 +383,7 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 			}
 			return nil
 		}},
+		{Key: "sentryDsn", Label: "Sentry DSN (optional)", Description: "Sentry DSN for error monitoring", Type: ui.FieldInput, AllowBlank: true},
 		{Key: "dodoLiveKey", Label: "Dodo Live API Key", Description: "Your Dodo Payments live API key (from dashboard → Developer → API)", Type: ui.FieldInput, Validate: func(s string) error {
 			if strings.TrimSpace(s) == "" {
 				return fmt.Errorf("DODO_PAYMENTS_API_KEY is required")
@@ -423,6 +428,7 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 	cfg.RedisURL = values["redisURL"]
 	cfg.ClickhouseURL = values["clickhouseURL"]
 	cfg.AppURL = values["appURL"]
+	cfg.SentryDSN = values["sentryDsn"]
 	cfg.DodoLiveAPIKey = values["dodoLiveKey"]
 	cfg.DodoTestAPIKey = values["dodoTestKey"]
 	cfg.DodoProductID = values["dodoProductID"]

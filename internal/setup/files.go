@@ -48,6 +48,7 @@ func writeEnvFile(cfg Config) error {
 		fmt.Sprintf("DATABASE_URL=%s", quoteEnvValue(cfg.DatabaseURL)),
 		fmt.Sprintf("CLICKHOUSE_URL=%s", quoteEnvValue(cfg.ClickhouseURL)),
 		fmt.Sprintf("APP_URL=%s", quoteEnvValue(cfg.AppURL)),
+		fmt.Sprintf("SENTRY_DSN=%s", quoteEnvValue(cfg.SentryDSN)),
 		fmt.Sprintf("DODO_PAYMENTS_API_KEY=%s", quoteEnvValue(cfg.DodoLiveAPIKey)),
 		fmt.Sprintf("DODO_PAYMENTS_TEST_API_KEY=%s", quoteEnvValue(cfg.DodoTestAPIKey)),
 		fmt.Sprintf("DODO_PAYMENTS_PRODUCT_ID=%s", quoteEnvValue(cfg.DodoProductID)),
