@@ -386,7 +386,7 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 		{Key: "sentryDsn", Label: "Sentry DSN (optional)", Description: "Sentry DSN for error monitoring", Type: ui.FieldInput, AllowBlank: true},
 		{Key: "dodoLiveKey", Label: "Dodo Live API Key", Description: "Your Dodo Payments live API key (from dashboard → Developer → API)", Type: ui.FieldInput, Validate: func(s string) error {
 			if strings.TrimSpace(s) == "" {
-				return fmt.Errorf("DODO_PAYMENTS_API_KEY is required")
+				return fmt.Errorf("DODO_PAYMENTS_LIVE_API_KEY is required")
 			}
 			return nil
 		}},
@@ -399,7 +399,7 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 		}},
 		{Key: "dodoWebhookSecret", Label: "Dodo Webhook Signing Secret", Description: "For verifying webhook signatures", Type: ui.FieldInput, Validate: func(s string) error {
 			if strings.TrimSpace(s) == "" {
-				return fmt.Errorf("DODO_PAYMENTS_WEBHOOK_SIGNING_SECRET is required")
+				return fmt.Errorf("DODO_PAYMENTS_WEBHOOK_SECRET is required")
 			}
 			return nil
 		}},
