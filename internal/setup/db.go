@@ -78,6 +78,28 @@ func generateDashboardAPIKey() (string, error) {
 	return "scrn_dash_" + normalized, nil
 }
 
+func EnsureDashboardDB(databaseURL string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := pgx.Connect(ctx, databaseURL)
+	if err != nil {
+		return &apperr.CommandError{Summary: "failed to connect to Postgres", Detail: err.Error()}
+	}
+	defer conn.Close(ctx)
+
+	_, err = conn.Exec(ctx, "CREATE DATABASE dashboard")
+	if err != nil {
+		lower := strings.ToLower(err.Error())
+		if strings.Contains(lower, "already exists") || strings.Contains(lower, "duplicate_database") {
+			return nil
+		}
+		return &apperr.CommandError{Summary: "failed to create dashboard database", Detail: err.Error()}
+	}
+
+	return nil
+}
+
 func InsertDashboardKey(databaseURL string, hmacSecret string, apiKey string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

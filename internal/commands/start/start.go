@@ -34,16 +34,15 @@ func (c *StartCommand) Run(ctx *cmd.Context, args []string) error {
 	if flags == nil {
 		return nil
 	}
-
-	if flags.stop {
-		return runStop()
+	if flags.help {
+		printHelp()
+		return nil
 	}
 
 	return runStart()
 }
 
 type startFlags struct {
-	stop bool
 	help bool
 }
 
@@ -53,15 +52,9 @@ func parseFlags(args []string) *startFlags {
 	fs := flag.NewFlagSet("start", flag.ContinueOnError)
 	fs.BoolVar(&flags.help, "h", false, "help")
 	fs.BoolVar(&flags.help, "help", false, "help")
-	fs.BoolVar(&flags.stop, "stop", false, "stop containers")
 
 	fs.SetOutput(os.NewFile(1, "/dev/null"))
 	if err := fs.Parse(args); err != nil {
-		return nil
-	}
-
-	if flags.help {
-		printHelp()
 		return nil
 	}
 
@@ -72,15 +65,15 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println(heading.Render("Usage:") + " scrawn start [flags]")
 	fmt.Println()
-	fmt.Println("Run the Scrawn stack (postgres + server) via docker compose")
+	fmt.Println("Run the Scrawn stack (postgres + server + dashboard) via docker compose")
 	fmt.Println()
 	fmt.Println(heading.Render("Flags:"))
-	fmt.Println("  --stop      Stop and clean up all containers")
 	fmt.Println("  -h, --help  Show this help")
 	fmt.Println()
 	fmt.Println(heading.Render("Examples:"))
-	fmt.Println("  scrawn start             # Start in background")
-	fmt.Println("  scrawn start --stop      # Stop all containers")
+	fmt.Println("  scrawn start         # Start in background")
+	fmt.Println("  scrawn stop          # Stop, preserve data")
+	fmt.Println("  scrawn reset         # Stop, wipe volumes")
 }
 
 func runStart() error {
@@ -112,29 +105,45 @@ func runStart() error {
 	hmacSecret, scrawnKey := readEnvFile()
 
 	if hmacSecret != "" && scrawnKey != "" {
-		fmt.Println(step.Render("==>"), "Provisioning dashboard API key...")
+		fmt.Println(step.Render("==>"), "Provisioning dashboard...")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
 		for {
+			dbErr := setup.EnsureDashboardDB("postgres://postgres:postgres@localhost:5432/postgres")
+			if dbErr == nil {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				fmt.Println(muted.Render("   Could not create dashboard database — DB not ready in time"))
+				goto keyDone
+			default:
+				time.Sleep(2 * time.Second)
+			}
+		}
+
+		fmt.Println(success.Render("✔"), "Dashboard database ready")
+
+		for {
 			err := setup.InsertDashboardKey("postgres://postgres:postgres@localhost:5432/scrawn", hmacSecret, scrawnKey)
 			if err == nil {
-				fmt.Println(success.Render("✔"), "Dashboard key provisioned")
+				fmt.Println(success.Render("✔"), "Dashboard API key provisioned")
 				break
 			}
 			select {
 			case <-ctx.Done():
 				fmt.Println(muted.Render("   Could not provision dashboard key — DB not ready in time"))
 				fmt.Println(muted.Render("   Run 'docker compose exec db pg_isready -U postgres' to check"))
-				goto done
+				goto keyDone
 			default:
 				time.Sleep(2 * time.Second)
 			}
 		}
 	}
 
-done:
+keyDone:
 	fmt.Println()
 	fmt.Println(success.Render("✔"), "Scrawn stack started in the background")
 	fmt.Println(muted.Render("   gRPC:  http://localhost:" + setup.GRPCPort))
@@ -158,37 +167,6 @@ func readEnvFile() (string, string) {
 		}
 	}
 	return hmacSecret, scrawnKey
-}
-
-func runStop() error {
-	composeFile := setup.DockerComposeFileName
-
-	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-		fmt.Println()
-		fmt.Println(success.Render("✖"), "Need a scrawn docker compose.. run scrawn init first")
-		fmt.Println()
-		return nil
-	}
-
-	checkDeps()
-
-	fmt.Println()
-	fmt.Println(step.Render("==>"), "Stopping containers...")
-
-	cmd := exec.Command("docker", "compose", "--env-file", "scrawn.env", "-f", composeFile, "--profile", "clickhouse", "down", "--volumes")
-	cmd.Dir = "."
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return &apperr.CommandError{
-			Summary: "failed to stop containers",
-			Detail:  err.Error(),
-		}
-	}
-
-	fmt.Println(success.Render("✔"), "Scrawn stack stopped and cleaned up")
-	fmt.Println()
-	return nil
 }
 
 func checkDeps() {
