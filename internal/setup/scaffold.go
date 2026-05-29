@@ -177,3 +177,29 @@ func copyFile(source string, target string) error {
 
 	return nil
 }
+
+func DownloadDockerCompose(targetDir string) error {
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Get(DockerComposeURL)
+	if err != nil {
+		return &apperr.CommandError{Summary: "failed to download compose file", Detail: err.Error()}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return &apperr.CommandError{Summary: "failed to download compose file", Detail: fmt.Sprintf("server returned %s", resp.Status)}
+	}
+
+	dst := filepath.Join(targetDir, DockerComposeFileName)
+	out, err := os.Create(dst)
+	if err != nil {
+		return &apperr.CommandError{Summary: "failed to create compose file", Detail: err.Error()}
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		return &apperr.CommandError{Summary: "failed to write compose file", Detail: err.Error()}
+	}
+
+	return nil
+}

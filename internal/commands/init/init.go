@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/ScrawnDotDev/scrawn-cli/internal/cmd"
 	"github.com/ScrawnDotDev/scrawn-cli/internal/setup"
 	"github.com/ScrawnDotDev/scrawn-cli/internal/ui"
@@ -20,11 +21,13 @@ func init() {
 }
 
 var heading = ui.Heading
+var muted = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+var success = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 
 type InitCommand struct{}
 
 func (c *InitCommand) Name() string     { return "init" }
-func (c *InitCommand) Description() string { return "initialize a new project (server, dashboard)" }
+func (c *InitCommand) Description() string { return "download docker compose setup for the Scrawn stack" }
 
 func (c *InitCommand) Run(ctx *cmd.Context, args []string) error {
 	if len(args) == 0 {
@@ -53,19 +56,19 @@ func runInitHelp() {
 	fmt.Println()
 	fmt.Println(heading.Render("Usage:") + " scrawn init [server|dashboard] [flags]")
 	fmt.Println()
-	fmt.Println("Initialize a new Scrawn project")
+	fmt.Println("Download the Scrawn docker compose setup or initialize a project")
 	fmt.Println()
 	fmt.Println(heading.Render("Subcommands:"))
-	fmt.Println("  server     Initialize a new Scrawn server")
-	fmt.Println("  dashboard Initialize a new Scrawn dashboard")
+	fmt.Println("  server     Initialize a new Scrawn server (full setup)")
+	fmt.Println("  dashboard  Initialize a new Scrawn dashboard")
 	fmt.Println()
 	fmt.Println(heading.Render("Flags:"))
-	fmt.Println("  -h, --help   Show this help")
+	fmt.Println("  -h, --help  Show this help")
 	fmt.Println()
 	fmt.Println(heading.Render("Examples:"))
-	fmt.Println("  scrawn init                Interactive wizard")
-	fmt.Println("  scrawn init server        Interactive server setup")
-	fmt.Println("  scrawn init server -d pg://... -r redis://...  Non-interactive")
+	fmt.Println("  scrawn init                 Download docker compose file")
+	fmt.Println("  scrawn init server          Interactive server setup")
+	fmt.Println("  scrawn init server -d pg://...  Non-interactive server setup")
 	fmt.Println()
 	fmt.Println("Use 'scrawn init <subcommand> -h' for more information.")
 }
@@ -305,18 +308,11 @@ func parseDashboardFlags(args []string) *dashboardFlags {
 }
 
 func runInteractive(ctx *cmd.Context) error {
-	cfg, err := collectServerConfigWizard(nil)
-	if err != nil {
+	if err := setup.DownloadDockerCompose("."); err != nil {
 		return err
 	}
-
-	result, err := setup.SetupServer(*cfg, ui.Step, ui.MarkOK)
-	if err != nil {
-		return err
-	}
-
-	ui.RenderSuccess(result, "server")
-	ui.RenderDashboardStub(result.TargetPath)
+	fmt.Println(success.Render("✔"), "Downloaded Scrawn's docker compose setup")
+	fmt.Println("   run 'scrawn start' to boot the stack")
 	return nil
 }
 
