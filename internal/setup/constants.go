@@ -7,6 +7,7 @@ const (
 	DockerComposeURL    = "https://raw.githubusercontent.com/ScrawnDotDev/Scrawn/refs/heads/main/docker-compose.yml"
 	DockerComposeFileName = "scrawn.docker-compose.yml"
 	DefaultHTTPURL      = "http://127.0.0.1:8070/"
+	HTTPPort            = "8070"
 	GRPCPort            = "8069"
 	ServerTimeout       = 25 * time.Second
 )

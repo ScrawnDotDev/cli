@@ -1,10 +1,13 @@
 package startcmd
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	apperr "github.com/ScrawnDotDev/scrawn-cli/internal/apperr"
@@ -95,7 +98,7 @@ func runStart() error {
 	fmt.Println()
 	fmt.Println(step.Render("==>"), "Starting Scrawn stack...")
 
-	cmd := exec.Command("docker", "compose", "-f", composeFile, "--profile", "clickhouse", "up", "-d")
+	cmd := exec.Command("docker", "compose", "--env-file", "scrawn.env", "-f", composeFile, "--profile", "clickhouse", "up", "-d")
 	cmd.Dir = "."
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -106,10 +109,55 @@ func runStart() error {
 		}
 	}
 
+	hmacSecret, scrawnKey := readEnvFile()
+
+	if hmacSecret != "" && scrawnKey != "" {
+		fmt.Println(step.Render("==>"), "Provisioning dashboard API key...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		for {
+			err := setup.InsertDashboardKey("postgres://postgres:postgres@localhost:5432/scrawn", hmacSecret, scrawnKey)
+			if err == nil {
+				fmt.Println(success.Render("✔"), "Dashboard key provisioned")
+				break
+			}
+			select {
+			case <-ctx.Done():
+				fmt.Println(muted.Render("   Could not provision dashboard key — DB not ready in time"))
+				fmt.Println(muted.Render("   Run 'docker compose exec db pg_isready -U postgres' to check"))
+				goto done
+			default:
+				time.Sleep(2 * time.Second)
+			}
+		}
+	}
+
+done:
+	fmt.Println()
 	fmt.Println(success.Render("✔"), "Scrawn stack started in the background")
-	fmt.Println(muted.Render("   gRPC: http://localhost:" + setup.GRPCPort))
+	fmt.Println(muted.Render("   gRPC:  http://localhost:" + setup.GRPCPort))
+	fmt.Println(muted.Render("   HTTP:  http://localhost:" + setup.HTTPPort))
 	fmt.Println()
 	return nil
+}
+
+func readEnvFile() (string, string) {
+	data, err := os.ReadFile("scrawn.env")
+	if err != nil {
+		return "", ""
+	}
+	var hmacSecret, scrawnKey string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "HMAC_SECRET=") {
+			hmacSecret = strings.TrimPrefix(line, "HMAC_SECRET=")
+		} else if strings.HasPrefix(line, "SCRAWN_KEY=") {
+			scrawnKey = strings.TrimPrefix(line, "SCRAWN_KEY=")
+		}
+	}
+	return hmacSecret, scrawnKey
 }
 
 func runStop() error {
@@ -127,7 +175,7 @@ func runStop() error {
 	fmt.Println()
 	fmt.Println(step.Render("==>"), "Stopping containers...")
 
-	cmd := exec.Command("docker", "compose", "-f", composeFile, "--profile", "clickhouse", "down", "--volumes")
+	cmd := exec.Command("docker", "compose", "--env-file", "scrawn.env", "-f", composeFile, "--profile", "clickhouse", "down", "--volumes")
 	cmd.Dir = "."
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -2,6 +2,8 @@ package setup
 
 import (
 	"archive/zip"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -179,6 +181,14 @@ func copyFile(source string, target string) error {
 }
 
 func DownloadDockerCompose(targetDir string) error {
+	hmacSecret, err := GenerateHMACSecret()
+	if err != nil {
+		return err
+	}
+
+	scrawnKey := "scrn_dash_" + randomBase64(32)
+	betterAuthSecret := randomBase64(32)
+
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Get(DockerComposeURL)
 	if err != nil {
@@ -190,8 +200,7 @@ func DownloadDockerCompose(targetDir string) error {
 		return &apperr.CommandError{Summary: "failed to download compose file", Detail: fmt.Sprintf("server returned %s", resp.Status)}
 	}
 
-	dst := filepath.Join(targetDir, DockerComposeFileName)
-	out, err := os.Create(dst)
+	out, err := os.Create(filepath.Join(targetDir, DockerComposeFileName))
 	if err != nil {
 		return &apperr.CommandError{Summary: "failed to create compose file", Detail: err.Error()}
 	}
@@ -200,6 +209,22 @@ func DownloadDockerCompose(targetDir string) error {
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		return &apperr.CommandError{Summary: "failed to write compose file", Detail: err.Error()}
 	}
+	out.Close()
+
+	if err := os.WriteFile(filepath.Join(targetDir, "scrawn.init.sql"), []byte("CREATE DATABASE dashboard;\n"), 0644); err != nil {
+		return &apperr.CommandError{Summary: "failed to write init.sql", Detail: err.Error()}
+	}
+
+	envContent := fmt.Sprintf("HMAC_SECRET=%s\nBETTER_AUTH_SECRET=%s\nSCRAWN_KEY=%s\n", hmacSecret, betterAuthSecret, scrawnKey)
+	if err := os.WriteFile(filepath.Join(targetDir, "scrawn.env"), []byte(envContent), 0644); err != nil {
+		return &apperr.CommandError{Summary: "failed to write env file", Detail: err.Error()}
+	}
 
 	return nil
+}
+
+func randomBase64(length int) string {
+	bytes := make([]byte, length)
+	rand.Read(bytes)
+	return base64.RawURLEncoding.EncodeToString(bytes)[:length]
 }
