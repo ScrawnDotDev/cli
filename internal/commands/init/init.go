@@ -84,10 +84,6 @@ type serverFlags struct {
 	clickhouseUrl    string
 	appUrl           string
 	sentryDsn        string
-	dodoLiveKey      string
-	dodoTestKey      string
-	dodoProductID    string
-	dodoWebhookSec   string
 	noInteractive    bool
 	help             bool
 }
@@ -135,10 +131,6 @@ func serverHelp() {
 	fmt.Println("  -c, --clickhouse-url    ClickHouse connection string")
 	fmt.Println("  --app-url               Public app URL (e.g. https://api.example.com)")
 	fmt.Println("  --sentry-dsn            Sentry DSN for error monitoring (optional)")
-	fmt.Println("  --dodo-live-key         Dodo Payments live API key")
-	fmt.Println("  --dodo-test-key         Dodo Payments test API key (optional)")
-	fmt.Println("  --dodo-product-id       Dodo Payments product ID")
-	fmt.Println("  --dodo-webhook-secret   Dodo Payments webhook signing secret (optional)")
 	fmt.Println("  --no-interactive        Exit with error if required flags missing")
 	fmt.Println("  -h, --help              Show this help")
 	fmt.Println()
@@ -180,10 +172,6 @@ func parseServerFlags(args []string) *serverFlags {
 	fs.StringVar(&flags.clickhouseUrl, "clickhouse-url", "", "clickhouse url")
 	fs.StringVar(&flags.appUrl, "app-url", "", "app url")
 	fs.StringVar(&flags.sentryDsn, "sentry-dsn", "", "sentry dsn")
-	fs.StringVar(&flags.dodoLiveKey, "dodo-live-key", "", "dodo live api key")
-	fs.StringVar(&flags.dodoTestKey, "dodo-test-key", "", "dodo test api key")
-	fs.StringVar(&flags.dodoProductID, "dodo-product-id", "", "dodo product id")
-	fs.StringVar(&flags.dodoWebhookSec, "dodo-webhook-secret", "", "dodo webhook secret")
 	fs.BoolVar(&flags.noInteractive, "no-interactive", false, "non-interactive")
 
 	fs.SetOutput(os.NewFile(1, "/dev/null"))
@@ -247,10 +235,6 @@ func buildServerConfig(flags *serverFlags) (*setup.Config, error) {
 	cfg.ClickhouseURL = flags.clickhouseUrl
 	cfg.AppURL = flags.appUrl
 	cfg.SentryDSN = flags.sentryDsn
-	cfg.DodoLiveAPIKey = flags.dodoLiveKey
-	cfg.DodoTestAPIKey = flags.dodoTestKey
-	cfg.DodoProductID = flags.dodoProductID
-	cfg.DodoWebhookSecret = flags.dodoWebhookSec
 
 	generated, genErr := setup.GenerateHMACSecret()
 	if genErr != nil {
@@ -384,25 +368,6 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 			return nil
 		}},
 		{Key: "sentryDsn", Label: "Sentry DSN (optional)", Description: "Sentry DSN for error monitoring", Type: ui.FieldInput, AllowBlank: true},
-		{Key: "dodoLiveKey", Label: "Dodo Live API Key", Description: "Your Dodo Payments live API key (from dashboard → Developer → API)", Type: ui.FieldInput, Validate: func(s string) error {
-			if strings.TrimSpace(s) == "" {
-				return fmt.Errorf("DODO_PAYMENTS_LIVE_API_KEY is required")
-			}
-			return nil
-		}},
-		{Key: "dodoTestKey", Label: "Dodo Test API Key", Description: "Optional — for test-mode checkout", Type: ui.FieldInput, AllowBlank: true},
-		{Key: "dodoProductID", Label: "Dodo Product ID", Description: "Your Dodo product ID (prod_xxxxx)", Type: ui.FieldInput, Validate: func(s string) error {
-			if strings.TrimSpace(s) == "" {
-				return fmt.Errorf("DODO_PAYMENTS_PRODUCT_ID is required")
-			}
-			return nil
-		}},
-		{Key: "dodoWebhookSecret", Label: "Dodo Webhook Signing Secret", Description: "For verifying webhook signatures", Type: ui.FieldInput, Validate: func(s string) error {
-			if strings.TrimSpace(s) == "" {
-				return fmt.Errorf("DODO_PAYMENTS_WEBHOOK_SECRET is required")
-			}
-			return nil
-		}},
 	}
 
 	values, err := ui.RunWizard("init server", "", fields)
@@ -429,10 +394,6 @@ func collectServerConfigWizard(flags *serverFlags) (*setup.Config, error) {
 	cfg.ClickhouseURL = values["clickhouseURL"]
 	cfg.AppURL = values["appURL"]
 	cfg.SentryDSN = values["sentryDsn"]
-	cfg.DodoLiveAPIKey = values["dodoLiveKey"]
-	cfg.DodoTestAPIKey = values["dodoTestKey"]
-	cfg.DodoProductID = values["dodoProductID"]
-	cfg.DodoWebhookSecret = values["dodoWebhookSecret"]
 
 	resolved, err := setup.ResolveTargetPath(cfg.TargetInput)
 	if err != nil {
