@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 	apperr "github.com/ScrawnDotDev/scrawn-cli/internal/apperr"
@@ -36,7 +37,7 @@ func (c *ResetCommand) Run(ctx *cmd.Context, args []string) error {
 		return nil
 	}
 
-	composeFile := setup.DockerComposeFileName
+	composeFile := setup.ScrawnComposeFile
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		fmt.Println()
 		fmt.Println(success.Render("✖"), "Need a scrawn docker compose.. run scrawn init first")
@@ -50,7 +51,7 @@ func (c *ResetCommand) Run(ctx *cmd.Context, args []string) error {
 	fmt.Println(step.Render("==>"), "Resetting Scrawn stack...")
 	fmt.Println(muted.Render("   This will delete all data!"))
 
-	cmd := exec.Command("docker", "compose", "--env-file", "scrawn.env", "-f", composeFile, "--profile", "clickhouse", "down", "--volumes")
+	cmd := exec.Command("docker", "compose", "--env-file", setup.ScrawnEnvFile, "-f", composeFile, "--profile", "production", "--profile", "clickhouse", "down", "--volumes")
 	cmd.Dir = "."
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -60,6 +61,8 @@ func (c *ResetCommand) Run(ctx *cmd.Context, args []string) error {
 			Detail:  err.Error(),
 		}
 	}
+
+	os.RemoveAll(filepath.Join(setup.ScrawnDir, "data"))
 
 	fmt.Println(success.Render("✔"), "Scrawn stack reset")
 	fmt.Println()

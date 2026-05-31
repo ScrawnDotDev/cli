@@ -37,7 +37,7 @@ func insertDashboardAPIKey(databaseURL string, hmacSecret string) (string, strin
 			return "", "", &apperr.CommandError{Summary: "failed to generate API key", Detail: err.Error()}
 		}
 
-		apiKeyHash := hashAPIKey(apiKey, hmacSecret)
+		apiKeyHash := HashAPIKey(apiKey, hmacSecret)
 		createdAt := time.Now().UTC()
 		expiresAt := createdAt.Add(365 * 24 * time.Hour)
 		role := "dashboard"
@@ -110,7 +110,7 @@ func InsertDashboardKey(databaseURL string, hmacSecret string, apiKey string) er
 	}
 	defer conn.Close(ctx)
 
-	apiKeyHash := hashAPIKey(apiKey, hmacSecret)
+	apiKeyHash := HashAPIKey(apiKey, hmacSecret)
 	createdAt := time.Now().UTC()
 	expiresAt := createdAt.Add(365 * 24 * time.Hour)
 
@@ -127,7 +127,7 @@ func InsertDashboardKey(databaseURL string, hmacSecret string, apiKey string) er
 	return nil
 }
 
-func hashAPIKey(apiKey string, secret string) string {
+func HashAPIKey(apiKey string, secret string) string {
 	h := hmac.New(sha256.New, []byte(secret))
 	_, _ = h.Write([]byte(apiKey))
 	return fmt.Sprintf("%x", h.Sum(nil))

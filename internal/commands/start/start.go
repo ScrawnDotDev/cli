@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/google/uuid"
 	apperr "github.com/ScrawnDotDev/scrawn-cli/internal/apperr"
 	"github.com/ScrawnDotDev/scrawn-cli/internal/cmd"
 	"github.com/ScrawnDotDev/scrawn-cli/internal/setup"
@@ -39,11 +40,12 @@ func (c *StartCommand) Run(ctx *cmd.Context, args []string) error {
 		return nil
 	}
 
-	return runStart()
+	return runStart(flags.dev)
 }
 
 type startFlags struct {
 	help bool
+	dev  bool
 }
 
 func parseFlags(args []string) *startFlags {
@@ -52,6 +54,7 @@ func parseFlags(args []string) *startFlags {
 	fs := flag.NewFlagSet("start", flag.ContinueOnError)
 	fs.BoolVar(&flags.help, "h", false, "help")
 	fs.BoolVar(&flags.help, "help", false, "help")
+	fs.BoolVar(&flags.dev, "dev", false, "start infra only + run migrations")
 
 	fs.SetOutput(os.NewFile(1, "/dev/null"))
 	if err := fs.Parse(args); err != nil {
@@ -69,15 +72,17 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println(heading.Render("Flags:"))
 	fmt.Println("  -h, --help  Show this help")
+	fmt.Println("  --dev       Start infra only (db + clickhouse), run migrations, then exit")
 	fmt.Println()
 	fmt.Println(heading.Render("Examples:"))
-	fmt.Println("  scrawn start         # Start in background")
+	fmt.Println("  scrawn start         # Start full stack")
+	fmt.Println("  scrawn start --dev   # Start infra only + run migrations")
 	fmt.Println("  scrawn stop          # Stop, preserve data")
 	fmt.Println("  scrawn reset         # Stop, wipe volumes")
 }
 
-func runStart() error {
-	composeFile := setup.DockerComposeFileName
+func runStart(dev bool) error {
+	composeFile := setup.ScrawnComposeFile
 
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		fmt.Println()
@@ -91,11 +96,12 @@ func runStart() error {
 	fmt.Println()
 	fmt.Println(step.Render("==>"), "Starting Scrawn stack...")
 
-	cmd := exec.Command("docker", "compose", "--env-file", "scrawn.env", "-f", composeFile, "--profile", "clickhouse", "up", "-d")
-	cmd.Dir = "."
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	profile := "production"
+	if dev {
+		profile = "clickhouse"
+	}
+
+	if err := composeRun(composeFile, "--profile", profile, "up", "-d"); err != nil {
 		return &apperr.CommandError{
 			Summary: "failed to start containers",
 			Detail:  err.Error(),
@@ -111,8 +117,11 @@ func runStart() error {
 		defer cancel()
 
 		for {
-			dbErr := setup.EnsureDashboardDB("postgres://postgres:postgres@localhost:5432/postgres")
-			if dbErr == nil {
+			output, err := execOnDB(composeFile, "psql", "-U", "postgres", "-d", "template1", "-c", "CREATE DATABASE dashboard")
+			if err == nil {
+				break
+			}
+			if strings.Contains(strings.ToLower(string(output)), "already exists") {
 				break
 			}
 			select {
@@ -126,16 +135,35 @@ func runStart() error {
 
 		fmt.Println(success.Render("✔"), "Dashboard database ready")
 
+		if dev {
+			fmt.Println(step.Render("==>"), "Running server migrations...")
+			if err := composeRun(composeFile, "run", "--rm", "server", "sh", "-c", "for i in 1 2 3 4 5; do bunx drizzle-kit push --force && break; sleep 3; done"); err != nil {
+				fmt.Println(muted.Render("   Server migration failed:"), err)
+				goto keyDone
+			}
+			fmt.Println(success.Render("✔"), "Server schema up to date")
+
+			fmt.Println(step.Render("==>"), "Running dashboard migrations...")
+			if err := composeRun(composeFile, "run", "--rm", "dashboard", "sh", "-c", "for i in 1 2 3 4 5; do bunx drizzle-kit push --force && break; sleep 3; done"); err != nil {
+				fmt.Println(muted.Render("   Dashboard migration failed:"), err)
+				goto keyDone
+			}
+			fmt.Println(success.Render("✔"), "Dashboard schema up to date")
+		}
+
+		apiKeyHash := setup.HashAPIKey(scrawnKey, hmacSecret)
+		insertSQL := fmt.Sprintf("INSERT INTO api_keys (id, name, key, role, created_at, expires_at, revoked, revoked_at) VALUES ('%s', 'Dashboard Key', '%s', 'dashboard', NOW(), NOW() + INTERVAL '365 days', false, NULL) ON CONFLICT DO NOTHING;",
+			uuid.NewString(), apiKeyHash)
+
 		for {
-			err := setup.InsertDashboardKey("postgres://postgres:postgres@localhost:5432/scrawn", hmacSecret, scrawnKey)
+			output, err := execOnDBStdin(composeFile, insertSQL, "psql", "-U", "postgres", "-d", "scrawn")
 			if err == nil {
 				fmt.Println(success.Render("✔"), "Dashboard API key provisioned")
 				break
 			}
 			select {
 			case <-ctx.Done():
-				fmt.Println(muted.Render("   Could not provision dashboard key — DB not ready in time"))
-				fmt.Println(muted.Render("   Run 'docker compose exec db pg_isready -U postgres' to check"))
+				fmt.Println(muted.Render("   Could not provision dashboard key:"), string(output))
 				goto keyDone
 			default:
 				time.Sleep(2 * time.Second)
@@ -145,15 +173,46 @@ func runStart() error {
 
 keyDone:
 	fmt.Println()
-	fmt.Println(success.Render("✔"), "Scrawn stack started in the background")
-	fmt.Println(muted.Render("   gRPC:  http://localhost:" + setup.GRPCPort))
-	fmt.Println(muted.Render("   HTTP:  http://localhost:" + setup.HTTPPort))
+	if dev {
+		fmt.Println(success.Render("✔"), "Scrawn dev stack ready")
+		fmt.Println(muted.Render("   Postgres:  postgres://postgres:postgres@localhost:5432"))
+		fmt.Println(muted.Render("   Dashboard DB: postgres://postgres:postgres@localhost:5432/dashboard"))
+		fmt.Println(muted.Render("   Clickhouse: http://localhost:8123"))
+	} else {
+		fmt.Println(success.Render("✔"), "Scrawn stack started in the background")
+		fmt.Println(muted.Render("   gRPC:  http://localhost:" + setup.GRPCPort))
+		fmt.Println(muted.Render("   HTTP:  http://localhost:" + setup.HTTPPort))
+	}
 	fmt.Println()
 	return nil
 }
 
+func composeRun(composeFile string, args ...string) error {
+	base := []string{"compose", "--env-file", setup.ScrawnEnvFile, "-f", composeFile}
+	cmd := exec.Command("docker", append(base, args...)...)
+	cmd.Dir = "."
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func execOnDB(composeFile string, args ...string) ([]byte, error) {
+	base := []string{"compose", "--env-file", setup.ScrawnEnvFile, "-f", composeFile, "exec", "-T", "db"}
+	cmd := exec.Command("docker", append(base, args...)...)
+	cmd.Dir = "."
+	return cmd.CombinedOutput()
+}
+
+func execOnDBStdin(composeFile string, stdin string, args ...string) ([]byte, error) {
+	base := []string{"compose", "--env-file", setup.ScrawnEnvFile, "-f", composeFile, "exec", "-T", "db"}
+	cmd := exec.Command("docker", append(base, args...)...)
+	cmd.Dir = "."
+	cmd.Stdin = strings.NewReader(stdin)
+	return cmd.CombinedOutput()
+}
+
 func readEnvFile() (string, string) {
-	data, err := os.ReadFile("scrawn.env")
+	data, err := os.ReadFile(setup.ScrawnEnvFile)
 	if err != nil {
 		return "", ""
 	}

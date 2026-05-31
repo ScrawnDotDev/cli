@@ -36,7 +36,7 @@ func (c *StopCommand) Run(ctx *cmd.Context, args []string) error {
 		return nil
 	}
 
-	composeFile := setup.DockerComposeFileName
+	composeFile := setup.ScrawnComposeFile
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		fmt.Println()
 		fmt.Println(success.Render("✖"), "Need a scrawn docker compose.. run scrawn init first")
@@ -49,7 +49,7 @@ func (c *StopCommand) Run(ctx *cmd.Context, args []string) error {
 	fmt.Println()
 	fmt.Println(step.Render("==>"), "Stopping containers...")
 
-	cmd := exec.Command("docker", "compose", "--env-file", "scrawn.env", "-f", composeFile, "--profile", "clickhouse", "down")
+	cmd := exec.Command("docker", "compose", "--env-file", setup.ScrawnEnvFile, "-f", composeFile, "--profile", "production", "--profile", "clickhouse", "down")
 	cmd.Dir = "."
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
