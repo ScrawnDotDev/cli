@@ -9,6 +9,7 @@ const (
 	DefaultHTTPURL         = "http://127.0.0.1:8070/"
 	HTTPPort               = "8070"
 	GRPCPort               = "8069"
+	EnvoyPort              = "8060"
 	ServerTimeout          = 25 * time.Second
 	ScrawnDir              = ".scrawn"
 	ScrawnComposeFile      = ScrawnDir + "/" + DockerComposeFileName

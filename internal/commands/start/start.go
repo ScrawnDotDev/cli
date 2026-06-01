@@ -180,8 +180,7 @@ keyDone:
 		fmt.Println(muted.Render("   Clickhouse: http://localhost:8123"))
 	} else {
 		fmt.Println(success.Render("✔"), "Scrawn stack started in the background")
-		fmt.Println(muted.Render("   gRPC:  http://localhost:" + setup.GRPCPort))
-		fmt.Println(muted.Render("   HTTP:  http://localhost:" + setup.HTTPPort))
+		fmt.Println(muted.Render("   API: http://localhost:" + setup.EnvoyPort))
 	}
 	fmt.Println()
 	return nil
