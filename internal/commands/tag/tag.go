@@ -78,60 +78,117 @@ func showTagHelp() {
 
 func showSyncHelp() {
 	fmt.Println()
-	fmt.Println(ui.Heading.Render("Usage:") + " scrawn tag sync")
+	fmt.Println(ui.Heading.Render("Usage:") + " scrawn tag sync [flags]")
 	fmt.Println()
-	fmt.Println("Pull tags and expressions from the Scrawn server and generate scrawn/pricerefs.ts")
+	fmt.Println(ui.Heading.Render("Flags:"))
+	fmt.Println("  --config <path>    Path to scrawn.config.ts (default: walk up from cwd)")
+	fmt.Println("  --api-key <key>    API key (inline override or skip config entirely)")
+	fmt.Println("  --http-url <url>   HTTP URL (inline override or skip config entirely)")
+	fmt.Println("  --directory <dir>  Output directory (default: scrawn/)")
 	fmt.Println()
-	fmt.Println(ui.Heading.Render("Configuration:"))
-	fmt.Println("  Reads scrawn.config.ts from the project root")
-	fmt.Println("  Requires bun or node+tsx to evaluate the config")
-	fmt.Println("  Environment variables are loaded from .env.local/.env automatically")
+	fmt.Println(ui.Heading.Render("Examples:"))
+	fmt.Println("  scrawn tag sync")
+	fmt.Println("  scrawn tag sync --api-key scrn_live_... --http-url http://localhost:8070")
+	fmt.Println("  scrawn tag sync --config ./packages/my-app/scrawn.config.ts")
 }
 
 // ---- sync implementation ----
 
 func runSync(args []string) error {
-	for _, a := range args {
-		if a == "-h" || a == "--help" {
+	var configPath, apiKey, httpUrl, directory string
+	hasAPIKey, hasHTTPURL := false, false
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--config":
+			if i+1 < len(args) {
+				configPath = args[i+1]
+				i++
+			}
+		case "--api-key":
+			if i+1 < len(args) {
+				apiKey = args[i+1]
+				hasAPIKey = true
+				i++
+			}
+		case "--http-url":
+			if i+1 < len(args) {
+				httpUrl = args[i+1]
+				hasHTTPURL = true
+				i++
+			}
+		case "--directory":
+			if i+1 < len(args) {
+				directory = args[i+1]
+				i++
+			}
+		case "-h", "--help":
 			showSyncHelp()
 			return nil
 		}
 	}
 
-	// 1. Find scrawn.config.ts
-	configPath, configDir := findConfigFile()
-	if configPath == "" {
+	// If apiKey AND httpUrl provided inline, skip config + runtime entirely
+	if hasAPIKey && hasHTTPURL {
+		cfg := cliConfig{
+			APIKey:    apiKey,
+			HTTPURL:   httpUrl,
+			Directory: directory,
+		}
+		if cfg.Directory == "" {
+			cfg.Directory = "scrawn"
+		}
+		if cfg.HTTPURL == "" {
+			cfg.HTTPURL = "http://localhost:8070"
+		}
+		return syncFromConfig(cfg, configPath)
+	}
+
+	// Find scrawn.config.ts
+	configPathFound, configDir := findConfigFile(configPath)
+	if configPathFound == "" {
 		return &cmd.CommandError{
 			Summary: "config file not found",
-			Detail:  "scrawn.config.ts not found in current or parent directories. Create one with scrawnConfig({...}).",
+			Detail:  "scrawn.config.ts not found in current or parent directories. Create one with scrawnConfig({...}), or pass --api-key <key> --http-url <url> inline.",
 		}
 	}
 
-	// 2. Detect runtime (bun, or node+tsx)
+	// Detect runtime
 	runtime, err := detectRuntime()
 	if err != nil {
 		return &cmd.CommandError{
 			Summary: "no JavaScript runtime found",
-			Detail:  "bun or node with tsx is required to evaluate scrawn.config.ts. Install bun or node+tsx.",
+			Detail:  err.Error() + ". Alternatively, pass --api-key <key> --http-url <url> inline to skip config evaluation.",
 		}
 	}
 
-	// 3. For node: load env file so config.ts can read env vars
+	// Load env files for node
 	if runtime == "node" {
 		loadEnvFiles(configDir)
 	}
 
-	// 4. Evaluate scrawn.config.ts via the runtime
+	// Evaluate config
 	var cfg cliConfig
-	if err := ui.SpinnerTask(fmt.Sprintf("Reading config (%s)", filepath.Base(configPath)), func() error {
+	if err := ui.SpinnerTask(fmt.Sprintf("Reading config (%s)", filepath.Base(configPathFound)), func() error {
 		var evalErr error
-		cfg, evalErr = evalTsConfig(runtime, configPath, configDir)
+		cfg, evalErr = evalTsConfig(runtime, configPathFound, configDir)
 		return evalErr
 	}); err != nil {
 		return &cmd.CommandError{
 			Summary: "failed to read config",
-			Detail:  err.Error(),
+			Detail:  err.Error() + ". Try passing --api-key <key> --http-url <url> inline instead.",
 		}
+	}
+
+	// Apply inline overrides
+	if hasAPIKey {
+		cfg.APIKey = apiKey
+	}
+	if hasHTTPURL {
+		cfg.HTTPURL = httpUrl
+	}
+	if directory != "" {
+		cfg.Directory = directory
 	}
 
 	if cfg.HTTPURL == "" {
@@ -144,11 +201,17 @@ func runSync(args []string) error {
 	if cfg.APIKey == "" {
 		return &cmd.CommandError{
 			Summary: "API key not found",
-			Detail:  "SCRAWN_KEY is not set. Make sure it is defined in your .env.local or environment.",
+			Detail:  "SCRAWN_KEY is not set in config or environment. Pass --api-key <key> inline.",
 		}
 	}
 
-	// 5. Fetch tags from server
+	return syncFromConfig(cfg, configPathFound)
+}
+
+func syncFromConfig(cfg cliConfig, configFile string) error {
+	configDir := filepath.Dir(configFile)
+
+	// 1. Fetch tags
 	var tags []string
 	if err := ui.SpinnerTask("Fetching tags from server", func() error {
 		var fetchErr error
@@ -161,7 +224,7 @@ func runSync(args []string) error {
 		}
 	}
 
-	// 6. Fetch expressions from server
+	// 2. Fetch expressions
 	var expressions []string
 	if err := ui.SpinnerTask("Fetching expressions from server", func() error {
 		var fetchErr error
@@ -174,7 +237,7 @@ func runSync(args []string) error {
 		}
 	}
 
-	// 7. Generate pricerefs.ts
+	// 3. Generate pricerefs.ts
 	outputDir := filepath.Join(configDir, cfg.Directory)
 	outputPath := filepath.Join(outputDir, "pricerefs.ts")
 
@@ -195,6 +258,9 @@ func runSync(args []string) error {
 // ---- runtime detection ----
 
 func detectRuntime() (string, error) {
+	if _, err := exec.LookPath("npx"); err == nil {
+		return "node", nil
+	}
 	if _, err := exec.LookPath("bun"); err == nil {
 		return "bun", nil
 	}
@@ -202,11 +268,8 @@ func detectRuntime() (string, error) {
 		if _, err := exec.LookPath("tsx"); err == nil {
 			return "node", nil
 		}
-		if _, err := exec.LookPath("npx"); err == nil {
-			return "node", nil
-		}
 	}
-	return "", fmt.Errorf("neither bun nor node+tsx found")
+	return "", fmt.Errorf("no JavaScript runtime found. Install npm/npx, bun, or tsx to evaluate scrawn.config.ts")
 }
 
 // ---- env file loading (for node fallback) ----
@@ -241,7 +304,14 @@ func loadEnvFiles(projectDir string) {
 
 // ---- config file resolution ----
 
-func findConfigFile() (string, string) {
+func findConfigFile(explicitPath string) (string, string) {
+	if explicitPath != "" {
+		if _, err := os.Stat(explicitPath); err != nil {
+			return "", ""
+		}
+		return explicitPath, filepath.Dir(explicitPath)
+	}
+
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", ""

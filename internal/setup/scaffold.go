@@ -204,7 +204,7 @@ func DownloadDockerCompose(targetDir string) error {
 		return &apperr.CommandError{Summary: "failed to write init.sql", Detail: err.Error()}
 	}
 
-	envContent := fmt.Sprintf("HMAC_SECRET=%s\nBETTER_AUTH_SECRET=%s\nSCRAWN_KEY=%s\n", hmacSecret, betterAuthSecret, scrawnKey)
+	envContent := fmt.Sprintf("HMAC_SECRET=%s\nBETTER_AUTH_SECRET=%s\nSCRAWN_KEY=%s\nSCRAWN_HTTP_URL=http://server:8060\n", hmacSecret, betterAuthSecret, scrawnKey)
 	if err := os.WriteFile(filepath.Join(baseDir, "scrawn.env"), []byte(envContent), 0644); err != nil {
 		return &apperr.CommandError{Summary: "failed to write env file", Detail: err.Error()}
 	}
