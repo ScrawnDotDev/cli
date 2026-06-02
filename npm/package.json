@@ -1,7 +1,7 @@
 {
   "name": "scrawn",
-  "version": "0.3.0",
-  "description": "The Scrawn billing CLI — self-hosted usage-based billing, one-ish line away",
+  "version": "0.4.1",
+  "description": "The Scrawn CLI - usage-based billing, one-ish line away",
   "bin": {
     "scrawn": "scripts/scrawn.js"
   },

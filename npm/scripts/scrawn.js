@@ -38,7 +38,7 @@ function archiveName() {
     process.exit(1);
   }
   const ext = process.platform === "win32" ? "zip" : "tar.gz";
-  return `scrawn_v${VERSION}_${os}_${arch}.${ext}`;
+  return `scrawn_${VERSION}_${os}_${arch}.${ext}`;
 }
 
 function cacheDir() {

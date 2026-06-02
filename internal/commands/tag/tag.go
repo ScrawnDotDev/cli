@@ -88,7 +88,7 @@ func showSyncHelp() {
 	fmt.Println()
 	fmt.Println(ui.Heading.Render("Examples:"))
 	fmt.Println("  scrawn tag sync")
-	fmt.Println("  scrawn tag sync --api-key scrn_live_... --http-url http://localhost:8070")
+	fmt.Println("  scrawn tag sync --api-key scrn_live_... --http-url http://localhost:8060")
 	fmt.Println("  scrawn tag sync --config ./packages/my-app/scrawn.config.ts")
 }
 
@@ -139,7 +139,7 @@ func runSync(args []string) error {
 			cfg.Directory = "scrawn"
 		}
 		if cfg.HTTPURL == "" {
-			cfg.HTTPURL = "http://localhost:8070"
+			cfg.HTTPURL = "http://localhost:8060"
 		}
 		return syncFromConfig(cfg, configPath)
 	}
@@ -192,7 +192,7 @@ func runSync(args []string) error {
 	}
 
 	if cfg.HTTPURL == "" {
-		cfg.HTTPURL = "http://localhost:8070"
+		cfg.HTTPURL = "http://localhost:8060"
 	}
 	if cfg.Directory == "" {
 		cfg.Directory = "scrawn"
