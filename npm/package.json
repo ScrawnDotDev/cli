@@ -1,0 +1,23 @@
+{
+  "name": "scrawn",
+  "version": "0.3.0",
+  "description": "The Scrawn billing CLI — self-hosted usage-based billing, one-ish line away",
+  "bin": {
+    "scrawn": "scripts/scrawn.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ScrawnDotDev/CLI.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "scripts"
+  ],
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "tar": "^7.4.3"
+  }
+}
