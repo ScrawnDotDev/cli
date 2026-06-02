@@ -2,6 +2,8 @@ package setup
 
 import (
 	"archive/zip"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -176,4 +178,71 @@ func copyFile(source string, target string) error {
 	}
 
 	return nil
+}
+
+func DownloadDockerCompose(targetDir string) error {
+	baseDir := filepath.Join(targetDir, ScrawnDir)
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return &apperr.CommandError{Summary: "failed to create .scrawn directory", Detail: err.Error()}
+	}
+
+	hmacSecret, err := GenerateHMACSecret()
+	if err != nil {
+		return err
+	}
+
+	scrawnKey := "scrn_dash_" + randomHexString(32)
+	betterAuthSecret := randomBase64(32)
+
+	client := &http.Client{Timeout: 60 * time.Second}
+
+	if err := downloadToFile(client, DockerComposeURL, filepath.Join(baseDir, DockerComposeFileName)); err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(filepath.Join(baseDir, "scrawn.init.sql"), []byte("CREATE DATABASE dashboard;\n"), 0644); err != nil {
+		return &apperr.CommandError{Summary: "failed to write init.sql", Detail: err.Error()}
+	}
+
+	envContent := fmt.Sprintf("HMAC_SECRET=%s\nBETTER_AUTH_SECRET=%s\nSCRAWN_KEY=%s\n", hmacSecret, betterAuthSecret, scrawnKey)
+	if err := os.WriteFile(filepath.Join(baseDir, "scrawn.env"), []byte(envContent), 0644); err != nil {
+		return &apperr.CommandError{Summary: "failed to write env file", Detail: err.Error()}
+	}
+
+	return nil
+}
+
+func downloadToFile(client *http.Client, url string, dest string) error {
+	resp, err := client.Get(url)
+	if err != nil {
+		return &apperr.CommandError{Summary: "failed to download " + dest, Detail: err.Error()}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return &apperr.CommandError{Summary: "failed to download " + dest, Detail: fmt.Sprintf("server returned %s", resp.Status)}
+	}
+
+	out, err := os.Create(dest)
+	if err != nil {
+		return &apperr.CommandError{Summary: "failed to create " + dest, Detail: err.Error()}
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		return &apperr.CommandError{Summary: "failed to write " + dest, Detail: err.Error()}
+	}
+	return nil
+}
+
+func randomBase64(length int) string {
+	bytes := make([]byte, length)
+	rand.Read(bytes)
+	return base64.RawURLEncoding.EncodeToString(bytes)[:length]
+}
+
+func randomHexString(length int) string {
+	bytes := make([]byte, (length+1)/2)
+	rand.Read(bytes)
+	return fmt.Sprintf("%x", bytes)[:length]
 }

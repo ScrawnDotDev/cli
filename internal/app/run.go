@@ -7,7 +7,9 @@ import (
 	"github.com/ScrawnDotDev/scrawn-cli/internal/ui"
 
 	_ "github.com/ScrawnDotDev/scrawn-cli/internal/commands/init"
-	_ "github.com/ScrawnDotDev/scrawn-cli/internal/commands/dev"
+	_ "github.com/ScrawnDotDev/scrawn-cli/internal/commands/start"
+	_ "github.com/ScrawnDotDev/scrawn-cli/internal/commands/stop"
+	_ "github.com/ScrawnDotDev/scrawn-cli/internal/commands/reset"
 	_ "github.com/ScrawnDotDev/scrawn-cli/internal/commands/tag"
 )
 
