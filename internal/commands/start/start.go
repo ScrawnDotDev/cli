@@ -181,6 +181,7 @@ keyDone:
 	} else {
 		fmt.Println(success.Render("✔"), "Scrawn stack started in the background")
 		fmt.Println(muted.Render("   API: http://localhost:" + setup.EnvoyPort))
+		fmt.Println(muted.Render("   Dashboard: http://localhost:3000"))
 	}
 	fmt.Println()
 	return nil
