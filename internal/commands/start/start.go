@@ -116,8 +116,23 @@ func runStart(dev bool) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
+		// Wait for Postgres to accept connections
 		for {
-			output, err := execOnDB(composeFile, "psql", "-U", "postgres", "-d", "template1", "-c", "CREATE DATABASE dashboard")
+			_, err := execOnDB(composeFile, "pg_isready", "-U", "postgres")
+			if err == nil {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				fmt.Println(muted.Render("   Could not create dashboard database — DB not ready in time"))
+				goto keyDone
+			default:
+				time.Sleep(2 * time.Second)
+			}
+		}
+
+		for {
+			output, err := execOnDB(composeFile, "psql", "-U", "postgres", "-d", "postgres", "-c", "CREATE DATABASE dashboard")
 			if err == nil {
 				break
 			}
@@ -137,18 +152,11 @@ func runStart(dev bool) error {
 
 		if dev {
 			fmt.Println(step.Render("==>"), "Running server migrations...")
-			if err := composeRun(composeFile, "run", "--rm", "server", "sh", "-c", "for i in 1 2 3 4 5; do bunx drizzle-kit push --force && break; sleep 3; done"); err != nil {
+			if err := composeRun(composeFile, "run", "--rm", "--entrypoint", "sh", "server", "-c", "for i in 1 2 3 4 5; do bunx drizzle-kit push --force && break; sleep 3; done"); err != nil {
 				fmt.Println(muted.Render("   Server migration failed:"), err)
 				goto keyDone
 			}
 			fmt.Println(success.Render("✔"), "Server schema up to date")
-
-			fmt.Println(step.Render("==>"), "Running dashboard migrations...")
-			if err := composeRun(composeFile, "run", "--rm", "dashboard", "sh", "-c", "for i in 1 2 3 4 5; do bunx drizzle-kit push --force && break; sleep 3; done"); err != nil {
-				fmt.Println(muted.Render("   Dashboard migration failed:"), err)
-				goto keyDone
-			}
-			fmt.Println(success.Render("✔"), "Dashboard schema up to date")
 		}
 
 		apiKeyHash := setup.HashAPIKey(scrawnKey, hmacSecret)
@@ -156,7 +164,7 @@ func runStart(dev bool) error {
 			uuid.NewString(), apiKeyHash)
 
 		for {
-			output, err := execOnDBStdin(composeFile, insertSQL, "psql", "-U", "postgres", "-d", "scrawn")
+			output, err := execOnDB(composeFile, "psql", "-U", "postgres", "-d", "scrawn", "-c", insertSQL)
 			if err == nil {
 				fmt.Println(success.Render("✔"), "Dashboard API key provisioned")
 				break
@@ -168,6 +176,15 @@ func runStart(dev bool) error {
 			default:
 				time.Sleep(2 * time.Second)
 			}
+		}
+
+		if dev {
+			fmt.Println(step.Render("==>"), "Running dashboard migrations...")
+			if err := composeRun(composeFile, "run", "--rm", "--entrypoint", "sh", "dashboard", "-c", "for i in 1 2 3 4 5; do bunx drizzle-kit push --force && break; sleep 3; done"); err != nil {
+				fmt.Println(muted.Render("   Dashboard migration failed:"), err)
+				goto keyDone
+			}
+			fmt.Println(success.Render("✔"), "Dashboard schema up to date")
 		}
 	}
 
