@@ -47,7 +47,7 @@ func writeEnvFile(cfg Config) error {
 		fmt.Sprintf("HMAC_SECRET=%s", quoteEnvValue(cfg.HMACSecret)),
 		fmt.Sprintf("DATABASE_URL=%s", quoteEnvValue(cfg.DatabaseURL)),
 		fmt.Sprintf("CLICKHOUSE_URL=%s", quoteEnvValue(cfg.ClickhouseURL)),
-		fmt.Sprintf("APP_URL=%s", quoteEnvValue(cfg.AppURL)),
+		fmt.Sprintf("APP_URL=%s # Public facing URL that the Scrawn Backend is hosted at", quoteEnvValue(cfg.AppURL)),
 		fmt.Sprintf("SENTRY_DSN=%s", quoteEnvValue(cfg.SentryDSN)),
 		fmt.Sprintf("REDIS_URL=%s", quoteEnvValue(cfg.RedisURL)),
 		"",
