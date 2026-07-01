@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/google/uuid"
 	apperr "github.com/ScrawnDotDev/scrawn-cli/internal/apperr"
 	"github.com/ScrawnDotDev/scrawn-cli/internal/cmd"
 	"github.com/ScrawnDotDev/scrawn-cli/internal/setup"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -27,7 +27,7 @@ var step = lipgloss.NewStyle().Foreground(lipgloss.Color("221"))
 
 type StartCommand struct{}
 
-func (c *StartCommand) Name() string     { return "start" }
+func (c *StartCommand) Name() string        { return "start" }
 func (c *StartCommand) Description() string { return "run the Scrawn stack via docker compose" }
 
 func (c *StartCommand) Run(ctx *cmd.Context, args []string) error {
@@ -238,8 +238,8 @@ func readEnvFile() (string, string) {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "HMAC_SECRET=") {
 			hmacSecret = strings.TrimPrefix(line, "HMAC_SECRET=")
-		} else if strings.HasPrefix(line, "SCRAWN_KEY=") {
-			scrawnKey = strings.TrimPrefix(line, "SCRAWN_KEY=")
+		} else if strings.HasPrefix(line, "MASTER_API_KEY=") {
+			scrawnKey = strings.TrimPrefix(line, "MASTER_API_KEY=")
 		}
 	}
 	return hmacSecret, scrawnKey
